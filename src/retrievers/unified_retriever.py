@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+import json
+import re
+import sys
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.retrievers.semantic_scholar import SemanticScholarRetriever
 from src.retrievers.arxiv_retriever import ArxivRetriever
@@ -12,6 +20,24 @@ from src.utils.pdf_downloader import PDFDownloader
 from src.config import MAX_PAPERS
 
 DEFAULT_SOURCES = ["local", "semantic_scholar", "arxiv"]
+TOP_VENUES = {
+    "s&p",
+    "ccs",
+    "usenix security",
+    "ndss",
+    "icse",
+    "fse",
+    "issta",
+    "ase",
+    "pldi",
+    "popl",
+    "oopsla",
+    "sosp",
+    "osdi",
+    "neurips",
+    "icml",
+    "iclr",
+}
 
 
 class UnifiedRetriever:
@@ -59,8 +85,6 @@ class UnifiedRetriever:
                 seen_ids.add(paper_id)
                 all_papers.append(paper_dict)
 
-        print(f"\n🔍 Keywords: {', '.join(keywords) if keywords else query_text}")
-
         if "local" in sources:
             try:
                 local_matches = self.storage.search_papers(
@@ -72,8 +96,8 @@ class UnifiedRetriever:
                     append(self._metadata_to_dict(paper))
                 if len(all_papers) >= max_results:
                     return self._finalize_results(all_papers)[:max_results]
-            except Exception as exc:
-                print(f"   Error searching local storage: {exc}")
+            except Exception:
+                pass
 
         if "semantic_scholar" in sources and len(all_papers) < max_results:
             needed = max_results - len(all_papers)
@@ -91,10 +115,8 @@ class UnifiedRetriever:
                         append(indexed)
                     if len(all_papers) >= max_results:
                         break
-            except RuntimeError as exc:
-                print(f"   ⚠️ Semantic Scholar error: {exc}")
-            except Exception as exc:
-                print(f"   ⚠️ Semantic Scholar error: {exc}")
+            except Exception:
+                pass
 
         if "arxiv" in sources and len(all_papers) < max_results:
             needed = max_results - len(all_papers)
@@ -113,10 +135,10 @@ class UnifiedRetriever:
                         append(indexed)
                     if len(all_papers) >= max_results:
                         break
-            except Exception as exc:
-                print(f"   ⚠️ arXiv error: {exc}")
+            except Exception:
+                pass
 
-        return self._finalize_results(all_papers)[:max_results]
+        return self._finalize_results(all_papers, keywords, query_text)[:max_results]
 
     def _add_and_index_paper(
         self,
@@ -146,10 +168,8 @@ class UnifiedRetriever:
                 arxiv_id = enriched_data.get("arxiv_id")
 
                 if arxiv_id:
-                    print(f"   📥 Downloading PDF for arXiv:{arxiv_id}...")
                     pdf_content = self.pdf_downloader.download_arxiv(arxiv_id)
                 elif pdf_url:
-                    print(f"   📥 Downloading PDF from {pdf_url[:50]}...")
                     pdf_content = self.pdf_downloader.download(pdf_url)
 
             # Add to storage
@@ -161,8 +181,7 @@ class UnifiedRetriever:
 
             return self._metadata_to_dict(paper)
 
-        except Exception as e:
-            print(f"   ⚠ Error adding paper: {e}")
+        except Exception:
             return None
 
     def _metadata_to_dict(self, paper: PaperMetadata) -> Dict[str, Any]:
@@ -185,9 +204,6 @@ class UnifiedRetriever:
             "source": paper.source,
             "bibtex": paper.to_bibtex(),
         }
-
-
-
     def retrieve_related_papers(
         self,
         paper_abstract: str,
@@ -197,23 +213,28 @@ class UnifiedRetriever:
         download_pdfs: bool = None,
     ) -> List[Dict[str, Any]]:
         """
-        Retrieve papers related to a given paper's abstract/title.
-
-        Args:
-            paper_abstract: Abstract of the paper
-            paper_title: Optional title of the paper
-            max_results: Maximum number of results
-            keywords: Optional manual keyword list
-            download_pdfs: Whether to download PDFs
+        Retrieve the exact paper matching the provided title.
         """
-        derived_keywords = self._sanitize_keywords(keywords) or self._derive_keywords(paper_abstract, paper_title)
-        query_text = self._keywords_to_query(derived_keywords, paper_title or paper_abstract)
-        return self.search_all_sources(
+        if not paper_title:
+            raise ValueError("Paper title is required for exact retrieval.")
+
+        normalized_title = paper_title.strip().lower()
+        derived_keywords = self._sanitize_keywords(keywords) or self._derive_keywords("", paper_title)
+        query_text = paper_title
+
+        candidates = self.search_all_sources(
             keywords=derived_keywords,
             query=query_text,
             max_results=max_results,
             download_pdfs=download_pdfs,
         )
+
+        matches = [
+            paper for paper in candidates
+            if (paper.get("title") or "").strip().lower() == normalized_title
+        ]
+
+        return matches[:1]
 
     @staticmethod
     def _keywords_to_query(keywords: List[str], fallback: Optional[str]) -> str:
@@ -221,12 +242,161 @@ class UnifiedRetriever:
             return " ".join(keywords)
         return (fallback or "").strip()
 
-    def _finalize_results(self, papers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _finalize_results(
+        self,
+        papers: List[Dict[str, Any]],
+        keywords: List[str],
+        query_text: str,
+    ) -> List[Dict[str, Any]]:
         deduplicated = self._deduplicate_papers(papers)
         if not deduplicated:
-            print("\n⚠️ No papers found for the provided keywords.")
+            print(f"\n⚠️ No papers found for keywords: {', '.join(keywords) if keywords else query_text}")
         return self._sort_papers(deduplicated)
+
+    def _deduplicate_papers(self, papers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        seen = set()
+        unique: List[Dict[str, Any]] = []
+        for paper in papers:
+            title = (paper.get("title") or "").strip().lower()
+            if title and title not in seen:
+                seen.add(title)
+                unique.append(paper)
+        return unique
+
+    def _sort_papers(self, papers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        def sort_key(paper: Dict[str, Any]):
+            venue_boost = 1 if self._is_top_venue(paper) else 0
+            citations = paper.get("citations") or 0
+            year = paper.get("year") or 0
+            return (venue_boost, citations, year)
+
+        return sorted(papers, key=sort_key, reverse=True)
+
+    @staticmethod
+    def _is_top_venue(paper: Dict[str, Any]) -> bool:
+        venue_text = (
+            (paper.get("conference") or "")
+            or (paper.get("venue") or "")
+            or (paper.get("journal") or "")
+        ).lower()
+        for keyword in TOP_VENUES:
+            if keyword in venue_text:
+                return True
+        return False
+
+    @staticmethod
+    def _sanitize_keywords(keywords: Optional[Iterable[str]]) -> List[str]:
+        sanitized: List[str] = []
+        if not keywords:
+            return sanitized
+        for keyword in keywords:
+            if not keyword:
+                continue
+            clean = keyword.strip()
+            if clean and clean not in sanitized:
+                sanitized.append(clean)
+        return sanitized
+
+    @staticmethod
+    def _derive_keywords(abstract: str, title: Optional[str]) -> List[str]:
+        stop_words = {
+            "the",
+            "a",
+            "an",
+            "in",
+            "on",
+            "for",
+            "with",
+            "using",
+            "based",
+            "this",
+            "that",
+            "these",
+            "those",
+            "are",
+            "is",
+            "be",
+            "been",
+            "being",
+        }
+        keywords: List[str] = []
+
+        def add_terms(text: str, limit: int) -> None:
+            for word in re.findall(r"[a-zA-Z][a-zA-Z0-9-]+", text.lower()):
+                if len(word) > 3 and word not in stop_words and word not in keywords:
+                    keywords.append(word)
+                if len(keywords) >= limit:
+                    break
+
+        if title:
+            add_terms(title, 5)
+
+        if abstract and len(keywords) < 5:
+            first_sentence = abstract.split(".")[0] if "." in abstract else abstract
+            add_terms(first_sentence, 5)
+
+        return keywords
 
     def get_storage_stats(self) -> Dict[str, Any]:
         """Get storage statistics."""
         return self.storage.get_statistics()
+
+
+if __name__ == "__main__":
+    retriever = UnifiedRetriever(download_pdfs=False)
+    # keyword_examples = [
+    #     ("Blockchain fuzzing", ["blockchain", "fuzzing"], 3),
+    #     ("Smart-contract security", ["smart contract", "security"], 3),
+    # ]
+
+    # for label, keywords, limit in keyword_examples:
+    #     print(f"\n🔎 {label} (limit={limit})")
+    #     try:
+    #         papers = retriever.search_all_sources(
+    #             keywords=keywords,
+    #             max_results=limit,
+    #             sources=["local"],
+    #             download_pdfs=False,
+    #         )
+    #         for paper in papers:
+    #             print(paper, json.dumps(paper, indent=2))
+    #     except Exception as exc:
+    #         print(f"   ❌ Retrieval error: {exc}")
+
+    print("\n🔍 Keyword example (local + arXiv)")
+    try:
+        papers = retriever.search_all_sources(
+            keywords=["smart contract", "fuzzer"],
+            max_results=1,
+            sources=["local", "arxiv"],
+            download_pdfs=False,
+        )
+        print(f"   Retrieved {len(papers)} paper(s)")
+    except Exception as exc:
+        print(f"   ❌ Retrieval error: {exc}")
+
+    print("\n📝 Title-only retrieval example")
+    try:
+        papers = retriever.retrieve_related_papers(
+            paper_abstract="",
+            paper_title="ityfuzz: Snapshot-Based Fuzzer for Smart Contract",
+            max_results=1,
+            download_pdfs=False,
+        )
+        for paper in papers:
+            print(paper, json.dumps(paper, indent=2))
+    except Exception as exc:
+        print(f"   ❌ Retrieval error: {exc}")
+
+
+    print("\n✅ Exact-match smoke test (ityfuzz)")
+    try:
+        exact = retriever.retrieve_related_papers(
+            paper_abstract="",
+            paper_title="ityfuzz: Snapshot-Based Fuzzer for Smart Contract",
+            max_results=1,
+            download_pdfs=False,
+        )
+        print(exact)
+    except Exception as exc:
+        print(f"   ❌ Exact-match test error: {exc}")
