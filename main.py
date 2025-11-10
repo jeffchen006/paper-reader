@@ -18,7 +18,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from src.retrievers.unified_retriever_v2 import UnifiedRetrieverV2
+from src.retrievers.unified_retriever import UnifiedRetrieverV2
 from src.generators.related_work_generator import RelatedWorkGenerator
 from src.config import MAX_PAPERS, DOWNLOAD_PDFS
 

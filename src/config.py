@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Optional
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -27,6 +28,11 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4-turbo-preview")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
+CONFERENCE_LLM_PROVIDER = os.getenv("CONFERENCE_LLM_PROVIDER", LLM_PROVIDER).lower()
+_default_conference_model = (
+    OPENAI_MODEL if CONFERENCE_LLM_PROVIDER == "openai" else ANTHROPIC_MODEL
+)
+CONFERENCE_LLM_MODEL = os.getenv("CONFERENCE_LLM_MODEL", _default_conference_model)
 
 # API Keys
 SEMANTIC_SCHOLAR_API_KEY = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
@@ -46,23 +52,33 @@ SEMANTIC_SCHOLAR_RATE_LIMIT = 1.0  # seconds between requests
 # No hardcoded limit - arXiv will fetch as many papers as needed
 
 
-def get_llm_config():
-    """Get the LLM configuration based on provider."""
-    if LLM_PROVIDER == "openai":
+def _build_llm_config(provider: str, model_override: Optional[str] = None):
+    provider = (provider or "").lower()
+    if provider == "openai":
         if not OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY not set in environment")
         return {
             "provider": "openai",
             "api_key": OPENAI_API_KEY,
-            "model": OPENAI_MODEL
+            "model": model_override or OPENAI_MODEL
         }
-    elif LLM_PROVIDER == "anthropic":
+    elif provider == "anthropic":
         if not ANTHROPIC_API_KEY:
             raise ValueError("ANTHROPIC_API_KEY not set in environment")
         return {
             "provider": "anthropic",
             "api_key": ANTHROPIC_API_KEY,
-            "model": ANTHROPIC_MODEL
+            "model": model_override or ANTHROPIC_MODEL
         }
     else:
-        raise ValueError(f"Unknown LLM provider: {LLM_PROVIDER}")
+        raise ValueError(f"Unknown LLM provider: {provider}")
+
+
+def get_llm_config():
+    """Get the primary LLM configuration."""
+    return _build_llm_config(LLM_PROVIDER)
+
+
+def get_conference_llm_config():
+    """Get the LLM configuration for conference abbreviation prompts."""
+    return _build_llm_config(CONFERENCE_LLM_PROVIDER, CONFERENCE_LLM_MODEL)
