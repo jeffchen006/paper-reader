@@ -1,0 +1,27 @@
+# Core dependencies
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langchain-anthropic>=0.1.0
+python-dotenv>=1.0.0
+
+# API integrations
+arxiv>=2.1.0
+requests>=2.31.0
+
+# Data processing
+pandas>=2.1.0
+numpy>=1.24.0
+
+# Database
+sqlalchemy>=2.0.0
+
+# Utilities
+tqdm>=4.66.0
+pydantic>=2.5.0
+
+# PDF processing
+pypdf>=4.0.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0

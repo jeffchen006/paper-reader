@@ -1,0 +1,52 @@
+{
+  "paper_id": "arXiv_2402.09094v2",
+  "title": "Unity is Strength: Enhancing Precision in Reentrancy Vulnerability Detection of Smart Contract Analysis Tools",
+  "authors": [
+    "Zexu Wang",
+    "Jiachi Chen",
+    "Zibin Zheng",
+    "Peilin Zheng",
+    "Yu Zhang",
+    "Weizhe Zhang"
+  ],
+  "year": 2024,
+  "abstract": "Reentrancy is one of the most notorious vulnerabilities in smart contracts,\nresulting in significant digital asset losses. However, many previous works\nindicate that current Reentrancy detection tools suffer from high false\npositive rates. Even worse, recent years have witnessed the emergence of new\nReentrancy attack patterns fueled by intricate and diverse vulnerability\nexploit mechanisms. Unfortunately, current tools face a significant limitation\nin their capacity to adapt and detect these evolving Reentrancy patterns.\nConsequently, ensuring precise and highly extensible Reentrancy vulnerability\ndetection remains critical challenges for existing tools. To address this\nissue, we propose a tool named ReEP, designed to reduce the false positives for\nReentrancy vulnerability detection. Additionally, ReEP can integrate multiple\ntools, expanding its capacity for vulnerability detection. It evaluates results\nfrom existing tools to verify vulnerability likelihood and reduce false\npositives. ReEP also offers excellent extensibility, enabling the integration\nof different detection tools to enhance precision and cover different\nvulnerability attack patterns. We perform ReEP to eight existing\nstate-of-the-art Reentrancy detection tools. The average precision of these\neight tools increased from the original 0.5% to 73% without sacrificing recall.\nFurthermore, ReEP exhibits robust extensibility. By integrating multiple tools,\nthe precision further improved to a maximum of 83.6%. These results demonstrate\nthat ReEP effectively unites the strengths of existing works, enhances the\nprecision of Reentrancy vulnerability detection tools.",
+  "venue": "arXiv:cs.CR",
+  "conference": "arXiv:cs.CR",
+  "journal": null,
+  "volume": null,
+  "pages": null,
+  "doi": null,
+  "arxiv_id": "2402.09094v2",
+  "url": "http://arxiv.org/abs/2402.09094v2",
+  "pdf_url": "http://arxiv.org/pdf/2402.09094v2",
+  "pdf_path": "papers_external/pdfs/arXivCSCR24_Unity_is_Strength_Enhancing_Precision_in_Reentrancy_Vulnera.pdf",
+  "citations": 0,
+  "keywords": [
+    "additionally",
+    "analysis",
+    "consequently",
+    "cs.cr",
+    "cs.se",
+    "enhancing precision",
+    "even",
+    "furthermore",
+    "however",
+    "reentrancy",
+    "reentrancy vulnerability detection",
+    "smart contract analysis tools reentrancy",
+    "smart-contracts",
+    "strength",
+    "unfortunately",
+    "unity",
+    "vulnerability"
+  ],
+  "topics": [
+    "reentrancy",
+    "security",
+    "smart contract"
+  ],
+  "source": "arxiv",
+  "added_date": "2025-11-09T22:59:16.433426",
+  "bibtex": "@inproceedings{Wang2024,\n  title={Unity is Strength: Enhancing Precision in Reentrancy Vulnerability Detection of Smart Contract Analysis Tools},\n  author={Zexu Wang and Jiachi Chen and Zibin Zheng and Peilin Zheng and Yu Zhang and Weizhe Zhang},\n  year={2024},\n  booktitle={arXiv:cs.CR},\n  url={http://arxiv.org/abs/2402.09094v2}\n}"
+}
